@@ -8,7 +8,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import { supabase } from "./supabaseClient.js";
 import {
   C, CATEGORY_META, ALERT_META, buildTimeline, formatDateLabel, formatDateShort, localExpatOf,
-  uniqueSorted, buildDateWindow, groupDatesByMonth, todayIso,
+  uniqueSorted, buildDateRange, addDaysIso, groupDatesByMonth, todayIso,
 } from "./lib.js";
 import { KpiCard, TabButton, SlicerSelect, ThemedTooltip, AlertPill, RotationGauge } from "./components.jsx";
 import EmployeeDrawer from "./EmployeeDrawer.jsx";
@@ -57,9 +57,7 @@ export default function App() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  const dateList = useMemo(() => buildDateWindow(selectedDate, 120, 60), [selectedDate]);
-  const windowStart = dateList[0];
-  const windowEnd = dateList[dateList.length - 1];
+  const [dateList, setDateList] = useState([]);
 
   async function reloadEmployees() {
     const { data, error } = await supabase.from("employees").select("*").order("name");
@@ -72,40 +70,44 @@ export default function App() {
       }))
     );
   }
-  async function reloadAttendance() {
-    const { data, error } = await supabase.from("attendance").select("employee_id,date,status_code").gte("date", windowStart).lte("date", windowEnd);
+  // Loads the FULL span of imported attendance (not a narrow window around
+  // "today") so every date that has data is actually reachable from the
+  // date picker \u2014 a rolling window couldn't show both January and
+  // September at once, which is what broke date navigation after importing
+  // a multi-month history. Extends a little past the latest data (or past
+  // today, whichever is later) so near-future planning entries still work.
+  // Never shows or fetches anything before January 2026, per instructions.
+  const DATA_FLOOR_DATE = "2026-01-01";
+  async function reloadDateRangeAndAttendance() {
+    const [{ data: minRow }, { data: maxRow }] = await Promise.all([
+      supabase.from("attendance").select("date").gte("date", DATA_FLOOR_DATE).order("date", { ascending: true }).limit(1),
+      supabase.from("attendance").select("date").gte("date", DATA_FLOOR_DATE).order("date", { ascending: false }).limit(1),
+    ]);
+    const today = todayIso();
+    let start = minRow?.[0]?.date || DATA_FLOOR_DATE;
+    if (start < DATA_FLOOR_DATE) start = DATA_FLOOR_DATE;
+    let end = maxRow?.[0]?.date || addDaysIso(today, 30);
+    if (end < today) end = today;
+    end = addDaysIso(end, 30); // a little forward padding for pre-planning
+
+    const list = buildDateRange(start, end);
+    setDateList(list);
+
+    const { data, error } = await supabase.from("attendance").select("employee_id,date,status_code").gte("date", start).lte("date", end);
     if (error) { setDataError(error.message); return; }
     setAttendanceRows(data || []);
+
+    const latestDate = maxRow?.[0]?.date;
+    if (latestDate && latestDate < today) setSelectedDate(latestDate);
   }
 
-  // Load employees once we're authenticated. Also default the selected date
-  // to the most recent date that actually has attendance data, rather than
-  // always jumping to today's real calendar date \u2014 otherwise, right after
-  // importing historical data (or if a day gets missed), the dashboard would
-  // show a wall of zeros even though the data is there, just elsewhere.
   useEffect(() => {
     if (!session) return;
     setLoadingData(true);
     setDataError(null);
-    (async () => {
-      await reloadEmployees();
-      const { data: latest, error } = await supabase
-        .from("attendance").select("date").order("date", { ascending: false }).limit(1);
-      const latestDate = !error && latest && latest[0]?.date;
-      if (latestDate && latestDate < todayIso()) {
-        setSelectedDate(latestDate); // triggers the window-reload effect below
-      } else {
-        await reloadAttendance();
-      }
-      setLoadingData(false);
-    })();
+    Promise.all([reloadEmployees(), reloadDateRangeAndAttendance()]).finally(() => setLoadingData(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
-  useEffect(() => {
-    if (!session) return;
-    reloadAttendance();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [windowStart, windowEnd]);
 
   // Join employees + attendance into the same shape the pipeline expects,
   // then run the (unchanged, previously-verified) rotation/alert pipeline.
@@ -241,7 +243,7 @@ export default function App() {
       return next;
     });
     const { error } = await supabase.from("attendance").upsert({ employee_id: employeeId, date, status_code: status }, { onConflict: "employee_id,date" });
-    if (error) { setDataError(error.message); reloadAttendance(); }
+    if (error) { setDataError(error.message); reloadDateRangeAndAttendance(); }
   }
   async function handleImportFile(ev) {
     const file = ev.target.files?.[0];
@@ -256,7 +258,7 @@ export default function App() {
       const result = await importToSupabase(parsed, setImportStatus);
       const skippedNote = result.skipped?.length ? ` ${result.skipped.length} skipped: ${result.skipped.join("; ")}` : "";
       setImportStatus(`Done \u2014 ${result.employeeCount} employees, ${result.attendanceCount} attendance records saved.${skippedNote}`);
-      await Promise.all([reloadEmployees(), reloadAttendance()]);
+      await Promise.all([reloadEmployees(), reloadDateRangeAndAttendance()]);
     } catch (err) {
       setImportError(err.message || "Import failed.");
       setImportStatus(null);
