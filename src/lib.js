@@ -76,7 +76,7 @@ export function categoryOf(status) {
   return CATEGORY_OF[status] ?? "ON_PROJECT";
 }
 export function phaseOf(status) {
-  if (status === "DO" || status === "V") return "OFF";
+  if (status === "DO" || status === "V" || status === "LOA") return "OFF";
   if (status === "WE" || status === "PH") return "WEEKEND";
   if (status === "") return "BLANK";
   return "WORKING";

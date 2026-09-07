@@ -7,7 +7,7 @@ import {
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from "recharts";
 import { supabase } from "./supabaseClient.js";
 import {
-  C, CATEGORY_META, ALERT_META, buildTimeline, formatDateLabel, formatDateShort, localExpatOf,
+  C, CATEGORY_META, ALERT_META, STATUS_OPTIONS, buildTimeline, formatDateLabel, formatDateShort, localExpatOf,
   uniqueSorted, buildDateRange, addDaysIso, groupDatesByMonth, todayIso,
 } from "./lib.js";
 import { KpiCard, TabButton, SlicerSelect, ThemedTooltip, AlertPill, RotationGauge } from "./components.jsx";
@@ -491,6 +491,9 @@ export default function App() {
                 <Plus size={13} /> Add Employee
               </button>
               <span className="text-xs" style={{ color: C.textMuted }}>{filteredRows.length} of {employees.length}</span>
+              <div className="w-full text-[11px] leading-relaxed" style={{ color: C.textMuted }}>
+                The <strong style={{ color: C.textSecondary }}>Attendance</strong> column below sets each person's status for <strong style={{ color: C.textSecondary }}>{formatDateShort(selectedDate)}</strong> \u2014 change the date up top to mark a different day.
+              </div>
             </div>
             <div className="rounded-xl overflow-hidden" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
               <div className="overflow-x-auto">
@@ -501,6 +504,7 @@ export default function App() {
                         <span className="inline-flex items-center gap-1">{label}{sortKey === key && (sortDir === "asc" ? <ChevronUp size={11} /> : <ChevronDown size={11} />)}</span>
                       </th>
                     ))}
+                    <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider font-medium whitespace-nowrap" style={{ color: C.textMuted }}>Attendance</th>
                   </tr></thead>
                   <tbody>
                     {filteredRows.map((e) => (
@@ -512,6 +516,16 @@ export default function App() {
                         <td className="px-4 py-3 whitespace-nowrap" style={{ color: C.textSecondary }}>{e.rot}</td>
                         <td className="px-4 py-3 whitespace-nowrap font-medium" style={{ color: e.today.daysRemaining != null ? ALERT_META[e.today.alert].color : C.textMuted, fontFamily: "'JetBrains Mono', monospace" }}>{e.today.daysRemaining != null ? e.today.daysRemaining : "\u2014"}</td>
                         <td className="px-4 py-3"><AlertPill alert={e.today.alert} compact /></td>
+                        <td className="px-4 py-3" onClick={(ev) => ev.stopPropagation()}>
+                          <select
+                            value={e.today.status}
+                            onChange={(ev) => handleEditDay(e.id, selectedDate, ev.target.value)}
+                            className="px-2 py-1.5 rounded-md text-xs font-medium outline-none cursor-pointer"
+                            style={{ background: C.bgPanel, border: `1px solid ${C.border}`, color: C.textPrimary, minWidth: 110 }}
+                          >
+                            {STATUS_OPTIONS.map((o) => <option key={o.code} value={o.code}>{o.label}</option>)}
+                          </select>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
