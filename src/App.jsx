@@ -254,7 +254,8 @@ export default function App() {
       const parsed = parseWorkbook(wb);
       if (!parsed) throw new Error('No roster sheet found. Looking for a sheet with a "Name" or "Employee Name" column.');
       const result = await importToSupabase(parsed, setImportStatus);
-      setImportStatus(`Done \u2014 ${result.employeeCount} employees, ${result.attendanceCount} attendance records saved.`);
+      const skippedNote = result.skipped?.length ? ` ${result.skipped.length} skipped: ${result.skipped.join("; ")}` : "";
+      setImportStatus(`Done \u2014 ${result.employeeCount} employees, ${result.attendanceCount} attendance records saved.${skippedNote}`);
       await Promise.all([reloadEmployees(), reloadAttendance()]);
     } catch (err) {
       setImportError(err.message || "Import failed.");

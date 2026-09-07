@@ -79,7 +79,33 @@ function fmtCellDate(val) {
     const d = new Date(epoch + val * 86400000);
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
   }
-  return val == null ? "" : String(val).trim();
+  if (val == null) return "";
+  const s = String(val).replace(/\u00a0/g, " ").trim(); // strip stray non-breaking spaces seen in this file
+  if (s === "") return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; // already ISO
+
+  // Numeric day/month/year text, e.g. "23-07-2026" or "7/24/2024". Try
+  // day-first first (this file's dominant style); fall back to month-first
+  // when day-first is impossible (e.g. "7/24/2024" can't have a 24th month).
+  let m = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (m) {
+    const a = parseInt(m[1], 10), b = parseInt(m[2], 10), year = parseInt(m[3], 10);
+    if (a >= 1 && a <= 31 && b >= 1 && b <= 12) return `${year}-${String(b).padStart(2, "0")}-${String(a).padStart(2, "0")}`;
+    if (b >= 1 && b <= 31 && a >= 1 && a <= 12) return `${year}-${String(a).padStart(2, "0")}-${String(b).padStart(2, "0")}`;
+  }
+  // Day-Month name-Year text, e.g. "23-Nov-2025" or "23 Nov 25".
+  m = s.match(/^(\d{1,2})[-\s]([A-Za-z]{3,})[-\s](\d{2,4})$/);
+  if (m) {
+    const day = parseInt(m[1], 10);
+    const monthIdx = MONTHS_ABBR_MAP[m[2].toLowerCase().slice(0, 3)];
+    if (monthIdx !== undefined && day >= 1 && day <= 31 && (m[3].length === 2 || m[3].length === 4)) {
+      let year = parseInt(m[3], 10);
+      if (year < 100) year += 2000;
+      return `${year}-${String(monthIdx + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+  }
+  return s; // unrecognized/corrupted (e.g. a typo'd year) \u2014 left as-is; caller skips this
+             // employee rather than failing the whole import over one bad cell
 }
 
 /* ---------------------------------------------------------------------------
@@ -254,14 +280,26 @@ export function parseWorkbook(wb) {
   return parseSingleSheetWorkbook(wb);
 }
 
-/** Upserts parsed employees + their full attendance history into Supabase. */
+/** Upserts parsed employees + their full attendance history into Supabase.
+ *  An employee with an unparseable joining date is skipped (and reported)
+ *  rather than failing the entire import \u2014 6 years of manual spreadsheet
+ *  entry means the occasional corrupted cell is expected, not exceptional. */
 export async function importToSupabase(parsed, onProgress) {
   onProgress?.("Saving employee records\u2026");
-  const employeeRows = parsed.employees.map((e) => ({
+  const skipped = [];
+  const validEmployees = parsed.employees.filter((e) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(e.sen || "")) {
+      skipped.push(`${e.name} (EE ${e.ee}) \u2014 unreadable joining date "${e.sen || "blank"}"`);
+      return false;
+    }
+    return true;
+  });
+  const employeeRows = validEmployees.map((e) => ({
     ee_number: e.ee, name: e.name, designation: e.pos, nationality: e.nat,
     business_line: e.bl, employee_class: e.cls, assignment: e.asn,
     rotation_cycle: e.rot, joining_date: e.sen || null, leave_balance: e.bal,
   }));
+  if (employeeRows.length === 0) throw new Error(`No employees could be saved. ${skipped.join("; ")}`);
   const { data: savedEmployees, error: empError } = await supabase
     .from("employees")
     .upsert(employeeRows, { onConflict: "ee_number" })
@@ -271,7 +309,7 @@ export async function importToSupabase(parsed, onProgress) {
   const idByEe = new Map(savedEmployees.map((e) => [e.ee_number, e.id]));
   onProgress?.("Saving attendance history\u2026");
   const attendanceRows = [];
-  parsed.employees.forEach((e) => {
+  validEmployees.forEach((e) => {
     const employeeId = idByEe.get(e.ee);
     if (!employeeId) return;
     parsed.dateList.forEach((date, i) => {
@@ -286,5 +324,5 @@ export async function importToSupabase(parsed, onProgress) {
     if (error) throw new Error(`Could not save attendance rows: ${error.message}`);
     onProgress?.(`Saving attendance history\u2026 (${Math.min(i + CHUNK, attendanceRows.length)}/${attendanceRows.length})`);
   }
-  return { employeeCount: savedEmployees.length, attendanceCount: attendanceRows.length };
+  return { employeeCount: savedEmployees.length, attendanceCount: attendanceRows.length, skipped };
 }
