@@ -250,7 +250,7 @@ export default function App() {
     setImportStatus("Reading file\u2026");
     try {
       const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf, { type: "array", cellDates: true });
+      const wb = XLSX.read(buf, { type: "array", cellDates: true, cellStyles: true });
       const parsed = parseWorkbook(wb);
       if (!parsed) throw new Error('No roster sheet found. Looking for a sheet with a "Name" or "Employee Name" column.');
       const result = await importToSupabase(parsed, setImportStatus);
@@ -293,7 +293,7 @@ export default function App() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="text-[10px] uppercase tracking-[0.15em] font-semibold mb-1" style={{ color: "#5B9BD5" }}>Workforce Rotation</div>
-            <h1 className="text-xl sm:text-2xl font-semibold leading-tight" style={{ color: C.textPrimary, fontFamily: "'Space Grotesk', sans-serif" }}>Sprint Command Centre</h1>
+            <h1 className="text-xl sm:text-2xl font-semibold leading-tight" style={{ color: C.textPrimary, fontFamily: "'Space Grotesk', sans-serif" }}>Sprint Operations Rotation Plan - KSA</h1>
             <div className="text-xs mt-1 flex items-center gap-1.5 flex-wrap" style={{ color: C.textSecondary }}>
               <MapPin size={12} />
               <span>{businessLines || "\u2014"} \u00B7 Kingdom of Saudi Arabia \u00B7 {totalHeadcount} employees</span>

@@ -23,7 +23,7 @@ export default function Login() {
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');`}</style>
       <div className="w-full max-w-sm rounded-xl p-6" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
         <div className="text-[10px] uppercase tracking-[0.15em] font-semibold mb-1" style={{ color: "#5B9BD5" }}>Workforce Rotation</div>
-        <h1 className="text-xl font-semibold mb-6" style={{ color: C.textPrimary, fontFamily: "'Space Grotesk', sans-serif" }}>Sprint Command Centre</h1>
+        <h1 className="text-xl font-semibold mb-6" style={{ color: C.textPrimary, fontFamily: "'Space Grotesk', sans-serif" }}>Sprint Operations Rotation Plan - KSA</h1>
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <label className="flex flex-col gap-1">
             <span className="text-[10px] uppercase tracking-wider font-medium" style={{ color: C.textMuted }}>Email</span>

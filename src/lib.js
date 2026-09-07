@@ -45,6 +45,7 @@ export const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Au
 export const STATUS_OPTIONS = [
   { code: "", label: "\u2014 No entry" },
   { code: "SJ", label: "SJ \u2014 Saudi Job (On Project)" },
+  { code: "SJF", label: "SJF \u2014 Saudi Job + Food Allowance" },
   { code: "SB", label: "SB \u2014 Saudi Base" },
   { code: "DO", label: "DO \u2014 Day Off" },
   { code: "RTD", label: "RTD \u2014 Return / Travel" },
@@ -68,6 +69,7 @@ const CATEGORY_OF = {
   RTD: "TRAVEL", TD: "TRAVEL",
   SL: "SICK_LEAVE",
   T: "OTHER_DUTY", BT: "OTHER_DUTY", HQ: "OTHER_DUTY", STB: "OTHER_DUTY", WFH: "OTHER_DUTY", QD: "OTHER_DUTY",
+  SJ: "ON_PROJECT", SJF: "ON_PROJECT",
   "": "BLANK",
 };
 export function categoryOf(status) {
