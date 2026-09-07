@@ -177,6 +177,18 @@ export function buildDateWindow(centerDate, daysBack = 120, daysForward = 60) {
   }
   return dates;
 }
+/** Inclusive list of every ISO date from start to end. Used once the actual
+ *  extent of imported data is known, so the whole thing is browsable at
+ *  once instead of a narrow window that slides with the selected date. */
+export function buildDateRange(startIso, endIso) {
+  const dates = [];
+  let cur = startIso;
+  while (cur <= endIso) {
+    dates.push(cur);
+    cur = addDaysIso(cur, 1);
+  }
+  return dates;
+}
 export function groupDatesByMonth(dateList) {
   const groups = [];
   let current = null;
