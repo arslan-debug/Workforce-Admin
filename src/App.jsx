@@ -93,9 +93,27 @@ export default function App() {
     const list = buildDateRange(start, end);
     setDateList(list);
 
-    const { data, error } = await supabase.from("attendance").select("employee_id,date,status_code").gte("date", start).lte("date", end);
-    if (error) { setDataError(error.message); return; }
-    setAttendanceRows(data || []);
+    // Supabase caps any single query at 1,000 rows by default, silently \u2014
+    // no error, just a truncated result in an unpredictable order. With
+    // ~100+ employees across hundreds of days this table is comfortably
+    // past that, so it has to be paged through explicitly.
+    const PAGE_SIZE = 1000;
+    let allRows = [];
+    let from = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from("attendance")
+        .select("employee_id,date,status_code")
+        .gte("date", start)
+        .lte("date", end)
+        .order("date", { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
+      if (error) { setDataError(error.message); return; }
+      allRows = allRows.concat(data || []);
+      if (!data || data.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
+    setAttendanceRows(allRows);
 
     const latestDate = maxRow?.[0]?.date;
     if (latestDate && latestDate < today) setSelectedDate(latestDate);
