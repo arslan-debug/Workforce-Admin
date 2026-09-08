@@ -4,7 +4,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 
 import { C, CATEGORY_META, buildTimeline, localExpatOf, formatDateShort } from "./lib.js";
 import { RotationGauge, AlertPill, CategoryTag, MonthCalendar, ThemedTooltip, ConfirmButton } from "./components.jsx";
 
-export default function EmployeeDrawer({ emp, dateList, onClose, onEditDay, onEdit, onDelete }) {
+export default function EmployeeDrawer({ emp, dateList, selectedDate, onClose, onEditDay, onEdit, onDelete }) {
   const [editMode, setEditMode] = useState(false);
   const timeline = useMemo(() => (emp ? buildTimeline(emp.daysArr, dateList, emp.rot) : []), [emp, dateList]);
   const monthly = useMemo(() => {
@@ -15,7 +15,11 @@ export default function EmployeeDrawer({ emp, dateList, onClose, onEditDay, onEd
   }, [timeline]);
 
   if (!emp) return null;
-  const latest = timeline[timeline.length - 1];
+  // Match whatever date the rest of the app (Employees table, Alerts) is
+  // showing \u2014 not just the last date in the loaded range, which is
+  // usually 30 days of blank future padding and was showing "On Track"
+  // for a date nobody has entered data for yet.
+  const latest = timeline.find((t) => t.date === selectedDate) || timeline[timeline.length - 1];
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end">

@@ -589,7 +589,7 @@ export default function App() {
 
       {selectedEmp && (
         <EmployeeDrawer
-          emp={selectedEmp} dateList={dateList} onClose={() => setSelectedEmpId(null)} onEditDay={handleEditDay}
+          emp={selectedEmp} dateList={dateList} selectedDate={selectedDate} onClose={() => setSelectedEmpId(null)} onEditDay={handleEditDay}
           onEdit={(emp) => { setEditingEmployee(emp); setFormError(null); setModalOpen(true); }}
           onDelete={handleDeleteEmployee}
         />
