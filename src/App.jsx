@@ -138,6 +138,19 @@ export default function App() {
     });
   }, [employeesRaw, attendanceRows, dateList]);
 
+  // Defensive: keep selectedDate inside dateList's actual bounds. Without
+  // this, if selectedDate ever drifted outside the loaded range, every
+  // employee's status across Overview/Alerts/Employees would silently fall
+  // back to the last date in the range (usually blank future padding) \u2014
+  // the same bug that hit the drawer, but here it would affect everything
+  // at once instead of just one panel.
+  useEffect(() => {
+    if (dateList.length === 0) return;
+    if (!dateList.includes(selectedDate)) {
+      setSelectedDate(selectedDate < dateList[0] ? dateList[0] : dateList[dateList.length - 1]);
+    }
+  }, [dateList]);
+
   const selectedDateIdx = dateList.indexOf(selectedDate);
   const todayRows = useMemo(
     () => employees.map((e) => ({ ...e, today: e.timeline[selectedDateIdx] || e.timeline[e.timeline.length - 1] })),
